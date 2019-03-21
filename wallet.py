@@ -72,7 +72,7 @@ class Wallet:
     def receive_coins(self, source, get_amount):
         # if no wallet has been created it will not be possible to receive points
         if self.get_key() == 'not activated':
-            return 'This wallet was not created.'
+            return {"error": "This wallet was not created."}
         # TODO: Update the amount in the database
         # if the wallet is valid the current amount plus the get_amount is the new amount
         self.amount += get_amount
@@ -98,7 +98,7 @@ def handle(endpoint, data):
     data['destination'] = destination
     data['get_amount'] = get_amount
     data['send_amount'] = send_amount
-    # every time the handle method is called, a new wallet object is been created with an uuid
+    # every time the handle method is called, a new wallet object is created
     wallet = Wallet()
     # endpoint[0] will be the action what to do in an array ['get', ...]
     if endpoint[0] == 'create':
