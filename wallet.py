@@ -14,8 +14,12 @@ sql = "CREATE TABLE wallet(" \
 """
 
 
+def connect_db():
+    return sqlite3.connect("wallet.db")
+
+
 def print_db():
-    connection = sqlite3.connect("wallet.db")
+    connection = connect_db()
     cursor = connection.cursor()
     # print the complete database in console
     sql = "SELECT * FROM wallet"
@@ -31,7 +35,7 @@ def print_db():
 
 def add_to_database(source_uuid, key):
     # connection to wallet database
-    connection = sqlite3.connect("wallet.db")
+    connection = connect_db()
     # create data cursor
     cursor = connection.cursor()
     # put in database
@@ -43,7 +47,7 @@ def add_to_database(source_uuid, key):
 
 def get_db_balance(source_uuid, key):
     # connection to wallet database
-    connection = sqlite3.connect("wallet.db")
+    connection = connect_db()
     # create data cursor
     cursor = connection.cursor()
     # Selection with strings
@@ -56,14 +60,53 @@ def get_db_balance(source_uuid, key):
     return balances[0]
 
 
-def update_database():
+def update_database(source_uuid, send_amount, destination_uuid):
     # connection to wallet database
-    connection = sqlite3.connect("wallet.db")
+    connection = connect_db()
     # create data cursor
     cursor = connection.cursor()
-    sql = ""
-    cursor.execute(sql)
+    # refresh record
+    sql_send = "UPDATE wallet SET balance = SUM(balance - " + str(send_amount) \
+               + ") WHERE source_uuid = " + str(source_uuid)
+    cursor.execute(sql_send)
+    connection.commit()
+    sql_receive = "UPDATE wallet SET balance = SUM(balance + " + str(send_amount) \
+                  + ") WHERE source_uuid = " + str(destination_uuid)
+    cursor.execute(sql_receive)
+    connection.commit()
     connection.close()
+
+
+def auth_db_user(source_uuid, key):
+    # connection to wallet database
+    connection = connect_db()
+    # create data cursor
+    cursor = connection.cursor()
+    sql = "SELECT * FROM wallet WHERE source_uuid = " + str(source_uuid) + " AND wallet_key = " + str(key)
+    cursor.execute(sql)
+    wallets = []
+    for record in cursor:
+        wallets.append(record)
+    connection.close()
+    if len(wallets) > 0:
+        return True
+    else:
+        return False
+
+
+def destination_exists(destination_uuid):
+    connection = connect_db()
+    cursor = connection.cursor()
+    sql = "SELECT * FROM wallet WHERE source_uuid = " + str(destination_uuid)
+    cursor.execute(sql)
+    wallets = []
+    for record in cursor:
+        wallets.append(record)
+    connection.close()
+    if len(wallets) > 0:
+        return True
+    else:
+        return False
 
 
 class Wallet:
@@ -91,9 +134,14 @@ class Wallet:
     def get_source_uuid(self):
         return self.source_uuid
 
+    def set_amount(self, amount):
+        self.amount = amount
+
+    def get_amount(self):
+        return self.amount
+
     # for checking the amount of morph coins
     def get_balance(self, source_uuid, key):
-        # TODO: Get the amount out of the database
         if source_uuid == "":
             return {"error": "Source UUID is empty."}
         if key == "":
@@ -115,7 +163,7 @@ class Wallet:
         return {"status": "Your wallet has been created. ", "uuid": str(self.get_source_uuid()),
                 "key": str(self.get_key())}
 
-    def send_coins(self, source_uuid, key, destination_uuid, send_amount):
+    def send_coins(self, source_uuid, key, send_amount, destination_uuid):
         if source_uuid == "":
             return {"error": "Source UUID is empty."}
         if key == "":
@@ -123,21 +171,23 @@ class Wallet:
         # if no random key was generated and the key is still not activated the user will not send coins
         if self.get_key() == 'not activated':
             return {"error": "You have to create a wallet before sending morph coins!"}
-        # TODO: look if the user information is in the database and are correct -> then set_key(key) and set_source_uuid
+        if not auth_db_user(source_uuid, key):
+            return {"error": "Your UUID or wallet key is wrong."}
+        # user is now authentified -> set amount uuid and key in the class
+        self.set_amount(get_db_balance(source_uuid, key))
+        self.set_source_uuid(source_uuid)
+        self.set_key(key)
         # if the pasted key is not the valid key no transfer will be confirmed
-        if str(key) != str(self.get_key()):
-            return {"error": "Transfer failed! You key is not valid."}
         if destination_uuid == "":
             return {"error": "Destination not specified."}
-        # TODO: look if the destination_uuid is valid in the database
+        if not destination_exists(destination_uuid):
+            return {"error": "Destination does not exist."}
         if send_amount <= 0:
             return {"error": "You can only send more than 0 morph coins."}
         # if the wanted amount to send is higher than the current balance it will fail to transfer
-        if send_amount > self.amount:
-            return {"error": 'Transfer failed! You have not enough morph coins.'}
-        # TODO: Update the amount in the database
-        # the balance of the wallet is current amount minus send amount of morph coins
-        self.amount -= send_amount
+        if send_amount > self.get_amount():
+            return {"error": "Transfer failed! You have not enough morph coins."}
+        update_database(source_uuid, send_amount, destination_uuid)
         # successful status mail with transfer information
         return {"status": "Transfer of " + str(send_amount) + " morph coins from " + str(source_uuid) +
                           " to " + str(destination_uuid) + " successful!"}
@@ -150,11 +200,11 @@ def handle(endpoint, data):
     :return: Response of the wallet for status of requests create, get, send, receive
     """
 
-    wallet_key = data['wallet_key']
     source_uuid = data['source_uuid']
-    destination_uuid = data['destination_uuid']
-    get_amount = data['get_amount']
+    wallet_key = data['wallet_key']
     send_amount = data['send_amount']
+    destination_uuid = data['destination_uuid']
+
     # every time the handle method is called, a new wallet object is created
     wallet = Wallet()
     # endpoint[0] will be the action what to do in an array ['get', ...]
@@ -163,7 +213,7 @@ def handle(endpoint, data):
     elif endpoint[0] == 'get':
         wallet_response = wallet.get_balance(source_uuid, wallet_key)
     elif endpoint[0] == 'send':
-        wallet_response = wallet.send_coins(source_uuid, wallet_key, destination_uuid, send_amount)
+        wallet_response = wallet.send_coins(source_uuid, wallet_key, send_amount, destination_uuid)
     else:
         wallet_response = 'Endpoint is not supported.'
     return {"wallet_response": wallet_response, "input_data": data}
