@@ -5,6 +5,57 @@ import string
 import sqlite3
 
 
+"""
+Database structure:
+
+sql = "CREATE TABLE wallet(" \
+  "uuid TEXT PRIMARY KEY, " \
+  "user_name TEXT, " \
+  "wallet_key TEXT, " \
+  "balance REAL) "
+"""
+
+
+def add_to_database(identifier, user_name, key):
+    # connection to wallet database
+    connection = sqlite3.connect("wallet.db")
+    # create data cursor
+    cursor = connection.cursor()
+    # put in database
+    sql = "INSERT INTO wallet VALUES(" + str(identifier) + ", " + str(user_name) + ", " \
+          + str(key) + ", " + str(0) + ")"
+    cursor.execute(sql)
+    connection.commit()
+    connection.close()
+
+
+def get_db_balance(user_name, key, unique_id):
+    # connection to wallet database
+    connection = sqlite3.connect("wallet.db")
+    # create data cursor
+    cursor = connection.cursor()
+    # Selection with strings
+    sql = "SELECT balance FROM wallet WHERE user_name = " + str(user_name) + " AND wallet_key = " + str(key)
+    cursor.execute(sql)
+    unique_ids = []
+    balances = []
+    for record in cursor:
+        unique_ids.append(record[0])
+        balances.append(record[3])
+    if len(unique_id) > 1:
+        if unique_id == "":
+            return {"error": "Please specify your uuid of the wallet to get information about the balance."}
+        else:
+            sql = "SELECT balance FROM wallet WHERE user_name = " + str(user_name) + " AND wallet_key = " \
+                  + str(key) + " AND uuid= " + str(unique_id)
+            cursor.execute(sql)
+            balances = []
+            for record in cursor:
+                balances.append(record[3])
+    connection.close()
+    return balances[0]
+
+
 class Wallet:
     """
     This is the wallet for the Cryptic currency for services like send, receive or get the balance of morph coins
@@ -31,7 +82,7 @@ class Wallet:
         return self.identifier
 
     # for checking the amount of morph coins
-    def get_balance(self, user_name, key):
+    def get_balance(self, user_name, key, unique_id=""):
         # TODO: Get the amount out of the database
         if user_name == "":
             return {"error": "User name not specified."}
@@ -40,18 +91,10 @@ class Wallet:
         # no valid key -> no status of balance
         if self.get_key() == 'not activated':
             return {"error": "You have to create a wallet before sending morph coins!"}
-        return {"balance": self.amount}
+        return {"balance": get_db_balance(user_name, key, unique_id)}
 
     # creates the wallet with creating a personal key and a uuid
     def create_wallet(self, user_name):
-        """
-           sql = "CREATE TABLE wallet(" \
-              "uuid TEXT PRIMARY KEY, " \
-              "user_name TEXT, " \
-              "wallet_key TEXT, " \
-              "balance REAL) "
-        """
-
         if user_name == "":
             return {"error": "User name not specified."}
         # creates an unified unique identifier to identify each wallet
@@ -59,17 +102,8 @@ class Wallet:
         # generate a personal key and set it for the wallet
         # key contains ascii letters and digits and is 10 chars long
         self.set_key(''.join([random.choice(string.ascii_letters + string.digits) for n in range(10)]))
-        # TODO: put the information in the sqlite3 database
-        # connection to wallet database
-        connection = sqlite3.connect("wallet.db")
-        # create data cursor
-        cursor = connection.cursor()
-        # put in database
-        sql = "INSERT INTO wallet VALUES(" + str(self.get_identifier()) + ", " + str(user_name) + ", "\
-              + str(self.get_key()) + ", " + str(0) + ")"
-        cursor.execute(sql)
-        connection.commit()
-        connection.close()
+        # put the information in the sqlite3 database
+        add_to_database(self.get_identifier(), user_name, self.get_key())
         return {"status": str(user_name) + " , your wallet has been created. ", "uuid": str(self.get_identifier()),
                 "key": str(self.get_key())}
 
@@ -122,6 +156,8 @@ def handle(endpoint, data):
 
     user_name = data['user_name']
     wallet_key = data['wallet_key']
+    # uuid is not necessary, only if there are two same users in database
+    unique_id = data['uuid']
     source = data['source']
     destination = data['destination']
     get_amount = data['get_amount']
@@ -132,7 +168,7 @@ def handle(endpoint, data):
     if endpoint[0] == 'create':
         wallet_response = wallet.create_wallet(user_name)
     elif endpoint[0] == 'get':
-        wallet_response = wallet.get_balance(user_name, wallet_key)
+        wallet_response = wallet.get_balance(user_name, wallet_key, unique_id)
     elif endpoint[0] == 'send':
         wallet_response = wallet.send_coins(user_name, wallet_key, destination, send_amount)
     elif endpoint[0] == 'receive':
