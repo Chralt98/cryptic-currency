@@ -3,8 +3,6 @@ import uuid
 import random
 import string
 import sqlite3
-import os
-import sys
 
 
 class Wallet:
@@ -46,6 +44,14 @@ class Wallet:
 
     # creates the wallet with creating a personal key and a uuid
     def create_wallet(self, user_name):
+        """
+           sql = "CREATE TABLE wallet(" \
+              "uuid TEXT PRIMARY KEY, " \
+              "user_name TEXT, " \
+              "wallet_key TEXT, " \
+              "balance REAL) "
+        """
+
         if user_name == "":
             return {"error": "User name not specified."}
         # creates an unified unique identifier to identify each wallet
@@ -54,6 +60,16 @@ class Wallet:
         # key contains ascii letters and digits and is 10 chars long
         self.set_key(''.join([random.choice(string.ascii_letters + string.digits) for n in range(10)]))
         # TODO: put the information in the sqlite3 database
+        # connection to wallet database
+        connection = sqlite3.connect("wallet.db")
+        # create data cursor
+        cursor = connection.cursor()
+        # put in database
+        sql = "INSERT INTO wallet VALUES(" + str(self.get_identifier()) + ", " + str(user_name) + ", "\
+              + str(self.get_key()) + ", " + self.amount + ")"
+        cursor.execute(sql)
+        connection.commit()
+        connection.close()
         return {"status": str(user_name) + " , your wallet has been created. ", "uuid": str(self.get_identifier()),
                 "key": str(self.get_key())}
 
@@ -149,6 +165,7 @@ if __name__ == '__main__':
     
     # execute the sql
     cursor.execute(sql)
+    connection.close()
     """
     m = MicroService('wallet', handle)
     m.run()
