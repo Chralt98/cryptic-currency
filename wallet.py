@@ -66,7 +66,7 @@ class Wallet:
         cursor = connection.cursor()
         # put in database
         sql = "INSERT INTO wallet VALUES(" + str(self.get_identifier()) + ", " + str(user_name) + ", "\
-              + str(self.get_key()) + ", " + self.amount + ")"
+              + str(self.get_key()) + ", " + str(0) + ")"
         cursor.execute(sql)
         connection.commit()
         connection.close()
@@ -119,19 +119,13 @@ def handle(endpoint, data):
     :param data: nothing specified
     :return: Response of the wallet for status of requests create, get, send, receive
     """
-    user_name = ""
-    wallet_key = ""
-    source = ""
-    destination = ""
-    get_amount = 0
-    send_amount = 0
 
-    data['user_name'] = user_name
-    data['wallet_key'] = wallet_key
-    data['source'] = source
-    data['destination'] = destination
-    data['get_amount'] = get_amount
-    data['send_amount'] = send_amount
+    user_name = data['user_name']
+    wallet_key = data['wallet_key']
+    source = data['source']
+    destination = data['destination']
+    get_amount = data['get_amount']
+    send_amount = data['send_amount']
     # every time the handle method is called, a new wallet object is created
     wallet = Wallet()
     # endpoint[0] will be the action what to do in an array ['get', ...]
