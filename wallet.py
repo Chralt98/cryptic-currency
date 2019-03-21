@@ -35,6 +35,10 @@ class Wallet:
     # for checking the amount of morph coins
     def get_balance(self, user_name, key):
         # TODO: Get the amount out of the database
+        if user_name == "":
+            return {"error": "User name not specified."}
+        if key == "":
+            return {"error": "Key is not valid."}
         # no valid key -> no status of balance
         if self.get_key() == 'not activated':
             return {"error": "You have to create a wallet before sending morph coins!"}
@@ -42,6 +46,8 @@ class Wallet:
 
     # creates the wallet with creating a personal key and a uuid
     def create_wallet(self, user_name):
+        if user_name == "":
+            return {"error": "User name not specified."}
         # creates an unified unique identifier to identify each wallet
         self.set_identifier(str(uuid.uuid4()))
         # generate a personal key and set it for the wallet
@@ -52,6 +58,14 @@ class Wallet:
                 "key": str(self.get_key())}
 
     def send_coins(self, user_name, key, destination, send_amount):
+        if user_name == "":
+            return {"error": "User name not specified."}
+        if key == "":
+            return {"error": "Key is not valid."}
+        if destination == "":
+            return {"error": "Destination not specified."}
+        if send_amount == 0:
+            return {"error": "You can not send 0 morph coins."}
         # TODO: Check the user name and key in the sqlite3 database
         # if no random key was generated and the key is still not activated the user will not send coins
         if self.get_key() == 'not activated':
@@ -70,6 +84,10 @@ class Wallet:
                           " to " + str(destination) + " successful!"}
 
     def receive_coins(self, source, get_amount):
+        if source == "":
+            return {"error": "Source not specified."}
+        if get_amount == 0:
+            return {"error": "You can not get 0 morph coins."}
         # if no wallet has been created it will not be possible to receive points
         if self.get_key() == 'not activated':
             return {"error": "This wallet was not created."}
@@ -124,10 +142,9 @@ if __name__ == '__main__':
 
     # create table
     sql = "CREATE TABLE wallet(" \
-          "id INTEGER PRIMARY KEY, " \
+          "uuid TEXT PRIMARY KEY, " \
           "user_name TEXT, " \
           "wallet_key TEXT, " \
-          "uuid TEXT, " \
           "balance REAL) "
     
     # execute the sql
