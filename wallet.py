@@ -6,12 +6,35 @@ import sqlite3
 import os
 
 """
-Database structure:
+    Database structure:
+    sql = "CREATE TABLE wallet(" \
+      "source_uuid TEXT PRIMARY KEY, " \
+      "wallet_key TEXT, " \
+      "balance REAL) "
+  
+   EXAMPLE INPUT TO CREATE WALLET:
+   empty_user = {"source_uuid": "", "wallet_key": "", "send_amount": 0, "destination_uuid": ""}
+   wallet_response = handle(['create'], empty_user)
 
-sql = "CREATE TABLE wallet(" \
-  "source_uuid TEXT PRIMARY KEY, " \
-  "wallet_key TEXT, " \
-  "balance REAL) "
+   GET THE CURRENT BALANCE OF WALLET:
+   wallet_response = handle(['get'], empty_user)
+   print(wallet_response)
+
+   TRANSFER MORPH COINS:
+   transfer_user = {"source_uuid": "679ca1a181af4bee887b5ef0a20ea626", "wallet_key": "ONh51aIXje",
+       "send_amount": 69, "destination_uuid": "687371ec7f0c472bb0999189e385d1d5"}
+   wallet_response = handle(['send'], transfer_user)
+   print(wallet_response)
+
+   CREATE MORPH COINS:
+   wallet_response = send_gift(1000, "687371ec7f0c472bb0999189e385d1d5")
+   print(wallet_response)
+
+   DELETE RECORD/WALLET IN DATABASE:
+   delete_db_user("687371ec7f0c472bb0999189e385d1d5")
+
+   PRINT DATABASE:
+   print_db()
 """
 
 
@@ -26,8 +49,9 @@ def print_db():
     sql = """SELECT * FROM wallet"""
     cursor.execute(sql)
     print("–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––")
-    print("-------------------WALLET-DATABASE-------------------------------------------------------------------------")
-    print("----------------------CRYPTIC------------------------------------------------------------------------------")
+    print("------------------------------------------WALLET-DATABASE--------------------------------------------------")
+    print("----------------------------------------------CRYPTIC------------------------------------------------------")
+    print("-----------------------------------------------------------------------------------------------------------")
     print("------------source_uuid-------------|-wallet_key-|---------------------------balance-----------------------")
     print("––––––––––––––––––––––––––––––––––––|––––––––––––|–––––––––––––––––––––––––––––––––––––––––––––––––––––––––")
     for record in cursor:
@@ -259,49 +283,23 @@ def handle(endpoint, data):
 if __name__ == '__main__':
     if not os.path.exists("wallet.db"):
         # connection to database
-        connection = sqlite3.connect("wallet.db")
+        connect = sqlite3.connect("wallet.db")
         # create data cursor
-        cursor = connection.cursor()
+        curs = connect.cursor()
         # create table
         sql = "CREATE TABLE wallet(" \
               "source_uuid TEXT PRIMARY KEY, " \
               "wallet_key TEXT, " \
               "balance REAL) "
         # execute the sql
-        cursor.execute(sql)
-        connection.close()
+        curs.execute(sql)
+        connect.close()
         # TODO: Creates a superuser, when the database is created
         sudo = Wallet()
         sudo_wallet = sudo.create_wallet()
         sudo_uuid = sudo_wallet['uuid']
         sudo_key = sudo_wallet['key']
         send_gift(9999999999999, sudo_uuid)
-
-    """
-    EXAMPLE INPUT TO CREATE WALLET:
-    empty_user = {"source_uuid": "", "wallet_key": "", "send_amount": 0, "destination_uuid": ""}
-    wallet_response = handle(['create'], empty_user)
-    
-    GET THE CURRENT BALANCE OF WALLET:
-    wallet_response = handle(['get'], empty_user)
-    print(wallet_response)
-    
-    TRANSFER MORPH COINS:
-    transfer_user = {"source_uuid": "679ca1a181af4bee887b5ef0a20ea626", "wallet_key": "ONh51aIXje",
-        "send_amount": 69, "destination_uuid": "687371ec7f0c472bb0999189e385d1d5"}
-    wallet_response = handle(['send'], transfer_user)
-    print(wallet_response)
-    
-    CREATE MORPH COINS:
-    wallet_response = send_gift(1000, "687371ec7f0c472bb0999189e385d1d5")
-    print(wallet_response)
-    
-    DELETE RECORD/WALLET IN DATABASE:
-    delete_db_user("687371ec7f0c472bb0999189e385d1d5")
-    
-    PRINT DATABASE:
-    print_db()
-    """
     print_db()
     # m = MicroService('wallet', handle)
     # m.run()
