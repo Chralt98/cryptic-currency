@@ -6,14 +6,8 @@ import sqlite3
 import os
 
 """
-    Database structure:
-    sql = "CREATE TABLE wallet(" \
-      "source_uuid TEXT PRIMARY KEY, " \
-      "wallet_key TEXT, " \
-      "balance REAL) "
-  
    EXAMPLE INPUT TO CREATE WALLET:
-   empty_user = {"source_uuid": "", "wallet_key": "", "send_amount": 0, "destination_uuid": ""}
+   empty_user = {"source_uuid": "", "wallet_key": "", "send_amount": 0, "destination_uuid": "", "usage": ""}
    wallet_response = handle(['create'], empty_user)
 
    GET THE CURRENT BALANCE OF WALLET:
@@ -55,7 +49,7 @@ def print_db():
     print("------------source_uuid-------------|-wallet_key-|---------------------------balance-----------------------")
     print("––––––––––––––––––––––––––––––––––––|––––––––––––|–––––––––––––––––––––––––––––––––––––––––––––––––––––––––")
     for record in cursor:
-        print("", record[0], record[1], record[2], sep=" | ")
+        print("", record[1], record[2], record[3], sep=" | ")
     print("–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––")
     connection.close()
 
@@ -86,11 +80,29 @@ def get_db_balance(source_uuid, key):
     return balances[0]
 
 
-def update_database(source_uuid, key, send_amount, destination_uuid):
+def get_db_transactions(source_uuid):
+    # connection to the transactions database
+    connection = connect_db()
+    # create data cursor
+    cursor = connection.cursor()
+    cursor.execute("""SELECT time_stamp, source_uuid, amount, destination_uuid, usage
+                FROM transactions WHERE source_uuid=? OR destination_uuid=?""", (str(source_uuid), str(source_uuid)))
+    # one element in list -> list with dicts
+    transactions = []
+    for record in cursor:
+        transactions.append({"time_stamp": str(record[0]), "source_uuid": str(record[1]), "amount": record[2],
+                            "destination_uuid": str(record[3]), "usage": record[4]})
+    return transactions
+
+
+def update_database(source_uuid, key, send_amount, destination_uuid, usage):
     # connection to wallet database
     connection = connect_db()
     # create data cursor
     cursor = connection.cursor()
+    cursor.execute("""INSERT INTO transactions (source_uuid, amount, destination_uuid, usage) VALUES (?,?,?,?);"""
+                   , (str(source_uuid), send_amount, str(destination_uuid), str(usage)))
+    connection.commit()
     balance_source = get_db_balance(source_uuid, key)
     # refresh record
     cursor.execute("""UPDATE wallet SET balance=? WHERE source_uuid=?"""
@@ -208,7 +220,7 @@ class Wallet:
         self.set_amount(get_db_balance(source_uuid, key))
         self.set_source_uuid(source_uuid)
         self.set_key(key)
-        return {"balance": get_db_balance(source_uuid, key)}
+        return {"balance": get_db_balance(source_uuid, key), "transactions": get_db_transactions(source_uuid)}
 
     # creates the wallet with creating a personal key and a uuid
     def create_wallet(self):
@@ -222,7 +234,7 @@ class Wallet:
         return {"status": "Your wallet has been created. ", "uuid": str(self.get_source_uuid()),
                 "key": str(self.get_key())}
 
-    def send_coins(self, source_uuid, key, send_amount, destination_uuid):
+    def send_coins(self, source_uuid, key, send_amount, destination_uuid, usage=""):
         if source_uuid == "":
             return {"error": "Source UUID is empty."}
         if key == "":
@@ -245,7 +257,7 @@ class Wallet:
         # if the wanted amount to send is higher than the current balance it will fail to transfer
         if send_amount > self.get_amount():
             return {"error": "Transfer failed! You have not enough morph coins."}
-        update_database(source_uuid, key, send_amount, destination_uuid)
+        update_database(source_uuid, key, send_amount, destination_uuid, usage)
         # successful status mail with transfer information
         return {"status": "Transfer of " + str(send_amount) + " morph coins from " + str(source_uuid) +
                           " to " + str(destination_uuid) + " successful!"}
@@ -258,23 +270,48 @@ def handle(endpoint, data):
     :param data: source_uuid, wallet_key, send_amount, destination_uuid
     :return: wallet response for actions
     """
+    # test the casting
     try:
-        source_uuid = str(data['source_uuid'])
-        wallet_key = str(data['wallet_key'])
-        send_amount = int(data['send_amount'])
-        destination_uuid = str(data['destination_uuid'])
+        str(data['source_uuid'])
+        str(data['wallet_key'])
+        float(data['send_amount'])
+        str(data['destination_uuid'])
+        str(data['usage'])
     except ValueError:
         return {"wallet_response": "Your input data is in a wrong format!", "source_uuid": "str",
-                "wallet_key": "str", "send_amount": "int", "destination_uuid": "str", "input_data": data}
+                "wallet_key": "str", "send_amount": "float", "destination_uuid": "str",
+                "usage": "str", "input_data": data}
+    except KeyError:
+        pass
     # every time the handle method is called, a new wallet object is created
     wallet = Wallet()
     # endpoint[0] will be the action what to do in an array ['get', ...]
     if endpoint[0] == 'create':
         wallet_response = wallet.create_wallet()
     elif endpoint[0] == 'get':
+        try:
+            source_uuid = data['source_uuid']
+            wallet_key = data['wallet_key']
+        except KeyError:
+            return {"wallet_response": "Keys 'source_uuid' and 'wallet_key' have to be set for endpoint get.",
+                    "input_data": data}
         wallet_response = wallet.get_balance(source_uuid, wallet_key)
     elif endpoint[0] == 'send':
-        wallet_response = wallet.send_coins(source_uuid, wallet_key, send_amount, destination_uuid)
+        try:
+            usage = data['usage']
+        except KeyError:
+            usage = ''
+        try:
+            source_uuid = data['source_uuid']
+            wallet_key = data['wallet_key']
+            send_amount = data['send_amount']
+            destination_uuid = data['destination_uuid']
+        except KeyError:
+            return {"wallet_response": "Keys 'source_uuid' and 'wallet_key' and 'send_amount' "
+                                       "and 'destination_uuid' have to be set for endpoint send."
+                                       "You can also use key 'usage' for specify your transfer.",
+                    "input_data": data}
+        wallet_response = wallet.send_coins(source_uuid, wallet_key, send_amount, destination_uuid, usage)
     else:
         wallet_response = 'Endpoint is not supported.'
     return {"wallet_response": wallet_response, "input_data": data}
@@ -287,12 +324,21 @@ if __name__ == '__main__':
         # create data cursor
         curs = connect.cursor()
         # create table
-        sql = "CREATE TABLE wallet(" \
-              "source_uuid TEXT PRIMARY KEY, " \
-              "wallet_key TEXT, " \
-              "balance REAL) "
+        sql1 = "CREATE TABLE wallet(" \
+               "release_time DATETIME DEFAULT CURRENT_TIMESTAMP," \
+               "source_uuid TEXT PRIMARY KEY, " \
+               "wallet_key TEXT, " \
+               "balance REAL) "
         # execute the sql
-        curs.execute(sql)
+        curs.execute(sql1)
+        sql2 = "CREATE TABLE transactions(" \
+               "id INTEGER PRIMARY KEY AUTOINCREMENT," \
+               "time_stamp DATETIME DEFAULT CURRENT_TIMESTAMP," \
+               "source_uuid TEXT," \
+               "amount REAL," \
+               "destination_uuid TEXT," \
+               "usage TEXT) "
+        curs.execute(sql2)
         connect.close()
         # TODO: Creates a superuser, when the database is created
         sudo = Wallet()
@@ -300,6 +346,9 @@ if __name__ == '__main__':
         sudo_uuid = sudo_wallet['uuid']
         sudo_key = sudo_wallet['key']
         send_gift(9999999999999, sudo_uuid)
+    empty_user = {"source_uuid": "", "wallet_key": "", "send_amount": 0, "destination_uuid": "", "usage": ""}
+    wallet_response2 = handle(['create'], empty_user)
+    print(wallet_response2)
     print_db()
     # m = MicroService('wallet', handle)
     # m.run()
