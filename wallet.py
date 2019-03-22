@@ -39,8 +39,8 @@ def connect_db():
 def print_db():
     connection = connect_db()
     cursor = connection.cursor()
-    # print the complete database in console
-    sql = """SELECT * FROM wallet"""
+    # print the first 5 wallets ordered by balance from database in console
+    sql = """SELECT * FROM wallet ORDER BY balance DESC LIMIT 5"""
     cursor.execute(sql)
     print("–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––")
     print("------------------------------------------WALLET-DATABASE--------------------------------------------------")
@@ -346,9 +346,13 @@ if __name__ == '__main__':
         sudo_uuid = sudo_wallet['uuid']
         sudo_key = sudo_wallet['key']
         send_gift(9999999999999, sudo_uuid)
-    empty_user = {"source_uuid": "", "wallet_key": "", "send_amount": 0, "destination_uuid": "", "usage": ""}
-    wallet_response2 = handle(['create'], empty_user)
-    print(wallet_response2)
+
+    for i in range(101):
+        empty_user = {"source_uuid": "", "wallet_key": "", "send_amount": 0, "destination_uuid": "", "usage": ""}
+        wallet_response2 = handle(['create'], empty_user)
+        if i % 100 == 0:
+            print(str(i) + " wallets created.", wallet_response2, sep=' | ')
+        # print(wallet_response2)
     print_db()
     # m = MicroService('wallet', handle)
     # m.run()
