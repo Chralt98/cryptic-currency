@@ -29,6 +29,12 @@ import os
 
    PRINT DATABASE:
    print_db()
+   
+   RESET PASSWORD
+   1 WALLET
+   Uebertragung von Spieler UUID
+   Funktion einbauen, die über Key einen anderen Spieler Geld schickt. -> Gift
+   Endvariable Token aufs Programm zugreifen
 """
 
 
@@ -46,22 +52,35 @@ def print_db():
     print("------------------------------------------WALLET-DATABASE--------------------------------------------------")
     print("----------------------------------------------CRYPTIC------------------------------------------------------")
     print("-----------------------------------------------------------------------------------------------------------")
-    print("------------source_uuid-------------|-wallet_key-|---------------------------balance-----------------------")
+    print("------------source_uuid-------------|-wallet_key-|-------------user_id--------------|--------balance-------")
     print("––––––––––––––––––––––––––––––––––––|––––––––––––|–––––––––––––––––––––––––––––––––––––––––––––––––––––––––")
     for record in cursor:
-        print("", record[1], record[2], record[3], sep=" | ")
+        print("", record[1], record[2], record[4], record[3], sep=" | ")
     print("–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––")
     connection.close()
 
 
-def add_to_database(source_uuid, key):
+def get_wallet_count(user_id):
+    # connection to wallet database
+    connection = connect_db()
+    # create data cursor
+    cursor = connection.cursor()
+    # return count of wallets
+    cursor.execute("""SELECT * FROM wallet WHERE user_id=?""", (user_id,))
+    wallets = []
+    for record in cursor:
+        wallets.append(record)
+    return len(wallets)
+
+
+def add_to_database(source_uuid, key, user_id):
     # connection to wallet database
     connection = connect_db()
     # create data cursor
     cursor = connection.cursor()
     # put in database
-    cursor.execute("""INSERT INTO wallet (source_uuid, wallet_key, balance) VALUES (?,?,?);"""
-                   , (str(source_uuid), str(key), 0))
+    cursor.execute("""INSERT INTO wallet (source_uuid, wallet_key, balance, user_id) VALUES (?,?,?,?);"""
+                   , (str(source_uuid), str(key), 100, str(user_id)))
     connection.commit()
     connection.close()
 
@@ -223,14 +242,17 @@ class Wallet:
         return {"balance": get_db_balance(source_uuid, key), "transactions": get_db_transactions(source_uuid)}
 
     # creates the wallet with creating a personal key and a uuid
-    def create_wallet(self):
+    def create_wallet(self, user_id):
+        # check if user got already a wallet
+        if get_wallet_count(user_id) > 0:
+            return {"error": "You have already got a wallet!"}
         # creates an unified unique identifier to identify each wallet
         self.set_source_uuid(str(uuid.uuid4()).replace("-", ""))
         # generate a personal key and set it for the wallet
         # key contains ascii letters and digits and is 10 chars long
         self.set_key(''.join([random.choice(string.ascii_letters + string.digits) for n in range(10)]))
         # put the information in the sqlite3 database
-        add_to_database(self.get_source_uuid(), self.get_key())
+        add_to_database(self.get_source_uuid(), self.get_key(), user_id)
         return {"status": "Your wallet has been created. ", "uuid": str(self.get_source_uuid()),
                 "key": str(self.get_key())}
 
@@ -272,14 +294,15 @@ def handle(endpoint, data):
     """
     # test the casting
     try:
+        str(data['user_id'])
         str(data['source_uuid'])
         str(data['wallet_key'])
-        float(data['send_amount'])
+        int(data['send_amount'])
         str(data['destination_uuid'])
         str(data['usage'])
     except ValueError:
-        return {"wallet_response": "Your input data is in a wrong format!", "source_uuid": "str",
-                "wallet_key": "str", "send_amount": "float", "destination_uuid": "str",
+        return {"wallet_response": "Your input data is in a wrong format!", "user_id": "str", "source_uuid": "str",
+                "wallet_key": "str", "send_amount": "int", "destination_uuid": "str",
                 "usage": "str", "input_data": data}
     except KeyError:
         pass
@@ -287,7 +310,11 @@ def handle(endpoint, data):
     wallet = Wallet()
     # endpoint[0] will be the action what to do in an array ['get', ...]
     if endpoint[0] == 'create':
-        wallet_response = wallet.create_wallet()
+        try:
+            user_id = data['user_id']
+        except KeyError:
+            return {"wallet_response": "Key 'user_id' have to be set for endpoint create.", "input_data": data}
+        wallet_response = wallet.create_wallet(user_id)
     elif endpoint[0] == 'get':
         try:
             source_uuid = data['source_uuid']
@@ -328,27 +355,30 @@ if __name__ == '__main__':
                "release_time DATETIME DEFAULT CURRENT_TIMESTAMP," \
                "source_uuid TEXT PRIMARY KEY, " \
                "wallet_key TEXT, " \
-               "balance REAL) "
+               "balance INTEGER, " \
+               "user_id TEXT); "
         # execute the sql
         curs.execute(sql1)
         sql2 = "CREATE TABLE transactions(" \
                "id INTEGER PRIMARY KEY AUTOINCREMENT," \
                "time_stamp DATETIME DEFAULT CURRENT_TIMESTAMP," \
                "source_uuid TEXT," \
-               "amount REAL," \
+               "amount INTEGER," \
                "destination_uuid TEXT," \
-               "usage TEXT) "
+               "usage TEXT); "
         curs.execute(sql2)
         connect.close()
         # TODO: Creates a superuser, when the database is created
         sudo = Wallet()
-        sudo_wallet = sudo.create_wallet()
+        sudo_wallet = sudo.create_wallet("7da46fff07d247b29e3f158a2d4431fa")
         sudo_uuid = sudo_wallet['uuid']
         sudo_key = sudo_wallet['key']
-        send_gift(9999999999999, sudo_uuid)
+        send_gift(99999999999999, sudo_uuid)
 
     for i in range(101):
-        empty_user = {"source_uuid": "", "wallet_key": "", "send_amount": 0, "destination_uuid": "", "usage": ""}
+        empty_user = {"user_id": ''.join([random.choice(string.ascii_letters + string.digits) for n in range(32)]),
+                      "source_uuid": "", "wallet_key": "",
+                      "send_amount": 0, "destination_uuid": "", "usage": ""}
         wallet_response2 = handle(['create'], empty_user)
         if i % 100 == 0:
             print(str(i) + " wallets created.", wallet_response2, sep=' | ')
