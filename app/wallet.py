@@ -1,3 +1,4 @@
+from cryptic import MicroService
 import uuid
 import random
 import string
@@ -135,6 +136,15 @@ def update_database(source_uuid: str, key: str, send_amount: int, destination_uu
     connection.close()
 
 
+def reset_db_user_key(source_uuid: str, key: str):
+    # update password in database
+    connection: sqlite3.Connection = connect_db()
+    cursor: sqlite3.Cursor = connection.cursor()
+    cursor.execute("""UPDATE wallet SET wallet_key=? WHERE source_uuid=?""", (str(key), str(source_uuid)))
+    connection.commit()
+    connection.close()
+
+
 def delete_db_user(source_uuid: str):
     # connection to wallet database
     connection: sqlite3.Connection = connect_db()
@@ -240,6 +250,8 @@ class Wallet:
 
     # creates the wallet with creating a personal key and a uuid
     def create_wallet(self, user_id: str) -> dict:
+        if user_id == "":
+            return {"status": "You have to paste the user uuid to create a wallet."}
         # check if user got already a wallet
         if get_wallet_count(user_id) > 0:
             return {"error": "You have already got a wallet!"}
@@ -252,6 +264,18 @@ class Wallet:
         add_to_database(self.get_source_uuid(), self.get_key(), user_id)
         return {"status": "Your wallet has been created. ", "uuid": str(self.get_source_uuid()),
                 "key": str(self.get_key())}
+
+    # resets password in database
+    def reset_wallet_key(self, source_uuid: str) -> dict:
+        if source_uuid == "":
+            return {"error": "Source UUID is empty."}
+        if not destination_exists(source_uuid):
+            return {"error": "Source UUID does not exist."}
+        # key contains ascii letters and digits and is 10 chars long
+        self.set_key(''.join([random.choice(string.ascii_letters + string.digits) for n in range(10)]))
+        self.set_source_uuid(source_uuid)
+        reset_db_user_key(source_uuid, self.get_key())
+        return {"status": "Your wallet key has been updated.", "uuid": str(source_uuid), "key": str(self.get_key())}
 
     def send_coins(self, source_uuid: str, key: str, send_amount: int, destination_uuid: str, usage: str = "") -> dict:
         if source_uuid == "":
@@ -336,6 +360,12 @@ def handle(endpoint: list, data: dict) -> dict:
                                        "You can also use key 'usage' for specify your transfer.",
                     "input_data": data}
         wallet_response: dict = wallet.send_coins(source_uuid, wallet_key, send_amount, destination_uuid, usage)
+    elif endpoint[0] == 'reset':
+        try:
+            source_uuid: str = data['source_uuid']
+        except KeyError:
+            return {"wallet_response": "Key 'source_uuid' has to be set for the endpoint reset."}
+        wallet_response: dict = wallet.reset_wallet_key(source_uuid)
     else:
         wallet_response: dict = {"error": "Endpoint is not supported."}
     return {"wallet_response": wallet_response, "input_data": data}
@@ -372,14 +402,53 @@ if __name__ == '__main__':
         sudo_key: str = sudo_wallet['key']
         send_gift(99999999999999, sudo_uuid)
 
-    for i in range(101):
-        empty_user: dict = {"user_id": ''.join([random.choice(string.ascii_letters + string.digits) for n in range(32)]),
-                            "source_uuid": "", "wallet_key": "",
-                            "send_amount": 0, "destination_uuid": "", "usage": ""}
-        wallet_response2: dict = handle(['create'], empty_user)
-        if i % 100 == 0:
-            print(str(i) + " wallets created.", wallet_response2, sep=' | ')
-        # print(wallet_response2)
+    # TODO: Guide to understand the features of the wallet
+    # user_id has to be set, because to create a wallet you have to have an unique
+    # identifier to lock the amount of wallets for each user
+    # -> CREATE A WALLET
+    creation_user: dict = {"user_id": ''.join([random.choice(string.ascii_letters + string.digits)
+                           for n in range(32)]),
+                           "source_uuid": "", "wallet_key": "",
+                           "send_amount": 0, "destination_uuid": "", "usage": ""}
+    resp: dict = handle(['create'], creation_user)
+    print(resp)
+
+    # -> RESET WALLET KEY
+    update_user: dict = {"user_id": '',
+                         "source_uuid": resp['wallet_response']['uuid'], "wallet_key": "",
+                         "send_amount": 0, "destination_uuid": "", "usage": ""}
+    resp: dict = handle(['reset'], update_user)
+
+    # -> SEND COINS FROM ONE WALLET TO ANOTHER
+    destination_user: dict = {"user_id": ''.join([random.choice(string.ascii_letters + string.digits)
+                              for n in range(32)]),
+                              "source_uuid": resp['wallet_response']['uuid'],
+                              "wallet_key": resp['wallet_response']['key'],
+                              "send_amount": 0, "destination_uuid": "", "usage": ""}
+    resp2: dict = handle(['create'], destination_user)
+    destination_user_uuid: str = resp2['wallet_response']['uuid']
+    destination_user_key: str = resp2['wallet_response']['key']
+
+    send_user: dict = {"user_id": '',
+                       "source_uuid": resp['wallet_response']['uuid'], "wallet_key": resp['wallet_response']['key'],
+                       "send_amount": 11, "destination_uuid": str(destination_user_uuid), "usage": "A cool product"}
+    print(handle(['send'], send_user))
+
+    # -> SHOW THE BALANCE OF WALLET AND TRANSACTIONS
+    balance_user: dict = {"user_id": '',
+                          "source_uuid": resp['wallet_response']['uuid'], "wallet_key": resp['wallet_response']['key'],
+                          "send_amount": 0, "destination_uuid": "", "usage": ""}
+    print(handle(['get'], balance_user))
+
+    # -> GENERATE COINS AND ADD THEM TO A WALLET
+    send_gift(12345, balance_user['source_uuid'])
+    print(handle(['get'], balance_user))
+
+    # -> DELETE WALLET
+    delete_db_user(balance_user['source_uuid'])
+
+    # -> PRINT THE FIRST 5 WALLETS ORDERED BY BALANCE IN COMMAND LINE
     print_db()
+
     # m = MicroService('wallet', handle)
     # m.run()

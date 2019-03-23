@@ -7,7 +7,7 @@ ENV DEBUG False
 
 WORKDIR /app
 
-COPY ./app
+ADD . /app/
 
 RUN apk add gcc musl-dev libffi-dev libressl-dev
 

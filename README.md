@@ -5,34 +5,58 @@ Put the following code after:
 
     if __name__ == '__main__':
 
-Example input to create wallet:
+Guide to understand the features of the wallet
 
-    empty_user = {"user_id": ''.join([random.choice(string.ascii_letters + string.digits) for n in range(32)]),
-                      "source_uuid": "", "wallet_key": "",
-                      "send_amount": 0, "destination_uuid": "", "usage": ""}
-    wallet_response = handle(['create'], empty_user)
+user_id has to be set, because to create a wallet you have to have an unique identifier to lock the amount of wallets for each user
 
-Get the current balance of the wallet and the transaction history:
+-> CREATE A WALLET
 
-    wallet_response = handle(['get'], empty_user)
-    print(wallet_response)
+    creation_user: dict = {"user_id": ''.join([random.choice(string.ascii_letters + string.digits)
+                           for n in range(32)]),
+                           "source_uuid": "", "wallet_key": "",
+                           "send_amount": 0, "destination_uuid": "", "usage": ""}
+    resp: dict = handle(['create'], creation_user)
+    print(resp)
 
-Transfer morph coins:
-
-    transfer_user = {"source_uuid": "679ca1a181af4bee887b5ef0a20ea626", "wallet_key": "ONh51aIXje",
-       "send_amount": 69, "destination_uuid": "687371ec7f0c472bb0999189e385d1d5"}
-    wallet_response = handle(['send'], transfer_user)
-    print(wallet_response)
-
-Create morph coins:
-
-    wallet_response = send_gift(1000, "687371ec7f0c472bb0999189e385d1d5")
-    print(wallet_response)
-
-Delete wallet in database:
-
-    delete_db_user("687371ec7f0c472bb0999189e385d1d5")
-
-Print database:
+-> RESET WALLET KEY
     
+    update_user: dict = {"user_id": '',
+                         "source_uuid": resp['wallet_response']['uuid'], "wallet_key": "",
+                         "send_amount": 0, "destination_uuid": "", "usage": ""}
+    resp: dict = handle(['reset'], update_user)
+
+-> SEND COINS FROM ONE WALLET TO ANOTHER
+
+    destination_user: dict = {"user_id": ''.join([random.choice(string.ascii_letters + string.digits)
+                              for n in range(32)]),
+                              "source_uuid": resp['wallet_response']['uuid'],
+                              "wallet_key": resp['wallet_response']['key'],
+                              "send_amount": 0, "destination_uuid": "", "usage": ""}
+    resp2: dict = handle(['create'], destination_user)
+    destination_user_uuid: str = resp2['wallet_response']['uuid']
+    destination_user_key: str = resp2['wallet_response']['key']
+    
+    send_user: dict = {"user_id": '',
+                       "source_uuid": resp['wallet_response']['uuid'], "wallet_key": resp['wallet_response']['key'],
+                       "send_amount": 11, "destination_uuid": str(destination_user_uuid), "usage": "A cool product"}
+    print(handle(['send'], send_user))
+
+-> SHOW THE BALANCE OF WALLET AND TRANSACTIONS
+
+    balance_user: dict = {"user_id": '',
+                          "source_uuid": resp['wallet_response']['uuid'], "wallet_key": resp['wallet_response']['key'],
+                          "send_amount": 0, "destination_uuid": "", "usage": ""}
+    print(handle(['get'], balance_user))
+
+-> GENERATE COINS AND ADD THEM TO A WALLET
+
+    send_gift(12345, balance_user['source_uuid'])
+    print(handle(['get'], balance_user))
+
+-> DELETE WALLET
+
+    delete_db_user(balance_user['source_uuid'])
+
+-> PRINT THE FIRST 5 WALLETS ORDERED BY BALANCE IN COMMAND LINE
+
     print_db()
