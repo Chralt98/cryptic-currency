@@ -1,29 +1,38 @@
 # cryptic-currency
-Python Microservice for Cryptic
+Python Microservice for the community project Cryptic-Currency
 
-   SQLite3 database structure:
-   """TABLE wallet(source_uuid TEXT PRIMARY KEY, wallet_key TEXT, balance REAL)"""
-  
-   EXAMPLE INPUT TO CREATE WALLET:
-   empty_user = {"source_uuid": "", "wallet_key": "", "send_amount": 0, "destination_uuid": ""}
-   wallet_response = handle(['create'], empty_user)
+Put the following code after:
 
-   GET THE CURRENT BALANCE OF WALLET:
-   wallet_response = handle(['get'], empty_user)
-   print(wallet_response)
+    if __name__ == '__main__':
 
-   TRANSFER MORPH COINS:
-   transfer_user = {"source_uuid": "679ca1a181af4bee887b5ef0a20ea626", "wallet_key": "ONh51aIXje",
+Example input to create wallet:
+
+    empty_user = {"user_id": ''.join([random.choice(string.ascii_letters + string.digits) for n in range(32)]),
+                      "source_uuid": "", "wallet_key": "",
+                      "send_amount": 0, "destination_uuid": "", "usage": ""}
+    wallet_response = handle(['create'], empty_user)
+
+Get the current balance of the wallet and the transaction history:
+
+    wallet_response = handle(['get'], empty_user)
+    print(wallet_response)
+
+Transfer morph coins:
+
+    transfer_user = {"source_uuid": "679ca1a181af4bee887b5ef0a20ea626", "wallet_key": "ONh51aIXje",
        "send_amount": 69, "destination_uuid": "687371ec7f0c472bb0999189e385d1d5"}
-   wallet_response = handle(['send'], transfer_user)
-   print(wallet_response)
+    wallet_response = handle(['send'], transfer_user)
+    print(wallet_response)
 
-   CREATE MORPH COINS:
-   wallet_response = send_gift(1000, "687371ec7f0c472bb0999189e385d1d5")
-   print(wallet_response)
+Create morph coins:
 
-   DELETE RECORD/WALLET IN DATABASE:
-   delete_db_user("687371ec7f0c472bb0999189e385d1d5")
+    wallet_response = send_gift(1000, "687371ec7f0c472bb0999189e385d1d5")
+    print(wallet_response)
 
-   PRINT DATABASE:
-   print_db()
+Delete wallet in database:
+
+    delete_db_user("687371ec7f0c472bb0999189e385d1d5")
+
+Print database:
+    
+    print_db()
