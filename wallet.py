@@ -3,7 +3,6 @@ import random
 import string
 import sqlite3
 import os
-import typing
 
 """
    EXAMPLE INPUT TO CREATE WALLET:
