@@ -1,33 +1,20 @@
 from cryptic import MicroService
-from flask_sqlalchemy import SQLAlchemy
 from uuid import uuid4
-from sqlalchemy import orm
-from sqlalchemy.ext.declarative import declarative_base
-from config import config
-import sqlalchemy
-from sqlalchemy import Column, Integer, String
-from objects import db
-
-base = declarative_base()
-
-uri = 'mysql://'+config["MYSQL_USERNAME"] + ":" + str(config["MYSQL_PASSWORD"]) + '@' + str(config["MYSQL_HOSTNAME"]) \
-      + ":" + str(config["MYSQL_PORT"]) + "/" + str(config["MYSQL_DATABASE"])
-
-engine = sqlalchemy.create_engine(uri)
-base.metadata.bind = engine
-session = orm.scoped_session(orm.sessionmaker())(bind=engine)
-# session = orm.sessionmaker(bind=engine)
+from objects import *
+from sqlalchemy import Column, Integer, String, DateTime, TIMESTAMP
+import datetime
 
 
 class Transaction(base):
     __tablename__: str = "transaction"
 
-    id: db.Column = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    time_stamp: db.Column(db.TIMESTAMP)
-    source_uuid: db.Column = db.Column(db.String(32), unique=True)
-    send_amount: db.Column = db.Column(db.Integer, nullable=False, default=0)
-    destination_uuid: db.Column = db.Column(db.String(32), unique=True)
-    usage: db.Column = db.Column(db.String(64), default='')
+    id: Column = Column(Integer, primary_key=True, autoincrement=True)
+    time_stamp: Column(TIMESTAMP)
+    # time_stamp: Column('last_updated', DateTime, onupdate=datetime.datetime.now) as evt. alternative
+    source_uuid: Column = Column(String(32), unique=True)
+    send_amount: Column = Column(Integer, nullable=False, default=0)
+    destination_uuid: Column = Column(String(32), unique=True)
+    usage: Column = Column(String(64), default='')
 
     # auf objekt serialize anwenden und dann kriege ich aus objekt ein dict zurueck
     @property
@@ -51,19 +38,19 @@ class Transaction(base):
         )
 
         # Add the new wallet to the db
-        db.session.add(transaction)
-        db.session.commit()
+        session.add(transaction)
+        session.commit()
         return transaction
 
 
 class Wallet(base):
     __tablename__: str = "wallet"
 
-    time_stamp: db.Column(db.TIMESTAMP)
-    source_uuid: db.Column = db.Column(db.String(32), primary_key=True, unique=True)
-    key: db.Column = db.Column(db.String(16))
-    amount: db.Column = db.Column(db.Integer, nullable=False, default=0)
-    user_uuid: db.Column = db.Column(db.String(32), unique=True)
+    time_stamp: Column(TIMESTAMP)
+    source_uuid: Column = Column(String(32), primary_key=True, unique=True)
+    key: Column = Column(String(16))
+    amount: Column = Column(Integer, nullable=False, default=0)
+    user_uuid: Column = Column(String(32), unique=True)
 
     # auf objekt serialize anwenden und dann kriege ich aus objekt ein dict zurueck
     @property
@@ -93,10 +80,9 @@ class Wallet(base):
         )
 
         # Add the new wallet to the db
-        db.session.add(wallet)
-        db.session.commit()
-        wallet.query.filter_by(source_uuid=source_uuid).first()
-        return {"status": "Your wallet has been created. ", "uuid": source_uuid, "key": key}
+        session.add(wallet)
+        session.commit()
+        return wallet
 
 
 def handle(endpoint: list, data: dict) -> dict:
@@ -162,3 +148,8 @@ def handle(endpoint: list, data: dict) -> dict:
     else:
         wallet_response: dict = {"error": "Endpoint is not supported."}
     return {"wallet_response": wallet_response, "input_data": data}
+
+# base.metadata.create_all(engine)
+# Falls du dann was querien möchtest das sieht z.b so aus
+# session.query(Wallet).filter(User.user_uuid == your_user_uuid).first()
+# https://docs.sqlalchemy.org/en/latest/orm/tutorial.html Weiter unten ist das ziemlich ausführlich erklärt

@@ -40,7 +40,7 @@ for key in to_load:
     elif key in os.environ:
         config[key] = os.environ.get(key)
 
+# mysql+pymysql://
 # set sqlalchemy database connection uri
-config["SQLALCHEMY_DATABASE_URI"]: str = \
-    f"mysql+pymysql://{config['MYSQL_USERNAME']}:{config['MYSQL_PASSWORD']}@" \
+config["SQLALCHEMY_DATABASE_URI"]: str = f"mysql+pymysql://{config['MYSQL_USERNAME']}:{config['MYSQL_PASSWORD']}@" \
     f"{config['MYSQL_HOSTNAME']}:{config['MYSQL_PORT']}/{config['MYSQL_DATABASE']}"

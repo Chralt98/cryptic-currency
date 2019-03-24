@@ -9,6 +9,7 @@ WORKDIR /app
 
 ADD . /app/
 
+RUN apt-get install python3-dev default-libmysqlclient-dev
 RUN apk add gcc musl-dev libffi-dev libressl-dev
 
 RUN pip install pipenv
