@@ -1,0 +1,7 @@
+microservicecryp
+sqlalchemy
+os
+json
+uuid
+socket
+typing

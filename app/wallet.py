@@ -265,20 +265,29 @@ def handle(endpoint: list, data: dict) -> dict:
     return {"wallet_response": wallet_response, "input_data": data}
 
 
-response1 = handle(['create'], {"user_uuid": str(uuid4()).replace("-", "")})
-print(response1)
-response2 = handle(['reset'], {"source_uuid": response1['wallet_response']['uuid']})
-print(response2)
-print(handle(['get'], {"source_uuid": response2['wallet_response']['uuid'],
-                       "key": response2['wallet_response']['key']}))
-response3 = handle(['create'], {"user_uuid": str(uuid4()).replace("-", "")})
-print(response3)
-response4 = handle(['send'], {"source_uuid": response1['wallet_response']['uuid'],
-                              "send_amount": 3, "key": response2['wallet_response']['key'],
-                              "destination_uuid": response3['wallet_response']['uuid'],
-                              "usage": "hallo bro du bist cool"})
-print(response4)
-print(handle(['get'], {"source_uuid": response2['wallet_response']['uuid'],
-                       "key": response2['wallet_response']['key']}))
-print(handle(['gift'], {"source_uuid": response2['wallet_response']['uuid'], "send_amount": 999}))
-print(handle(['delete'], {"source_uuid": response2['wallet_response']['uuid']}))
+def handle_ms(ms, data, tag):
+    print(ms, data, tag)
+
+
+if __name__ == '__main__':
+    """
+    response1 = handle(['create'], {"user_uuid": str(uuid4()).replace("-", "")})
+    print(response1)
+    response2 = handle(['reset'], {"source_uuid": response1['wallet_response']['uuid']})
+    print(response2)
+    print(handle(['get'], {"source_uuid": response2['wallet_response']['uuid'],
+                           "key": response2['wallet_response']['key']}))
+    response3 = handle(['create'], {"user_uuid": str(uuid4()).replace("-", "")})
+    print(response3)
+    response4 = handle(['send'], {"source_uuid": response1['wallet_response']['uuid'],
+                                  "send_amount": 3, "key": response2['wallet_response']['key'],
+                                  "destination_uuid": response3['wallet_response']['uuid'],
+                                  "usage": "hallo bro du bist cool"})
+    print(response4)
+    print(handle(['get'], {"source_uuid": response2['wallet_response']['uuid'],
+                           "key": response2['wallet_response']['key']}))
+    print(handle(['gift'], {"source_uuid": response2['wallet_response']['uuid'], "send_amount": 999}))
+    print(handle(['delete'], {"source_uuid": response2['wallet_response']['uuid']}))
+    """
+    m = MicroService('wallet', handle, handle_ms)
+    m.run()
