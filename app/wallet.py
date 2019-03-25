@@ -5,6 +5,27 @@ from sqlalchemy import Column, Integer, String, DateTime, exists, and_, or_
 import datetime
 
 
+"""
+    response1 = handle(['create'], {"user_uuid": str(uuid4()).replace("-", "")})
+    print(response1)
+    response2 = handle(['reset'], {"source_uuid": response1['wallet_response']['uuid']})
+    print(response2)
+    print(handle(['get'], {"source_uuid": response2['wallet_response']['uuid'],
+                           "key": response2['wallet_response']['key']}))
+    response3 = handle(['create'], {"user_uuid": str(uuid4()).replace("-", "")})
+    print(response3)
+    response4 = handle(['send'], {"source_uuid": response1['wallet_response']['uuid'],
+                                  "send_amount": 3, "key": response2['wallet_response']['key'],
+                                  "destination_uuid": response3['wallet_response']['uuid'],
+                                  "usage": "hallo bro du bist cool"})
+    print(response4)
+    print(handle(['get'], {"source_uuid": response2['wallet_response']['uuid'],
+                           "key": response2['wallet_response']['key']}))
+    print(handle(['gift'], {"source_uuid": response2['wallet_response']['uuid'], "send_amount": 999}))
+    print(handle(['delete'], {"source_uuid": response2['wallet_response']['uuid']}))
+"""
+
+
 class Transaction(db.base):
     __tablename__: str = "transaction"
 
@@ -95,21 +116,23 @@ class Wallet(db.base):
         return {"status": "Your wallet has been created. ", "uuid": str(source_uuid), "key": str(key)}
 
     # for checking the amount of morph coins and transactions
-    def get(self, source_uuid: str, key: str) -> dict:
+    @staticmethod
+    def get(source_uuid: str, key: str) -> dict:
         if source_uuid == "" or key == "":
             return {"error": "Source UUID or Key is empty."}
         # no valid key -> no status of balance
-        if not self.auth_user(source_uuid, key):
+        if not Wallet.auth_user(source_uuid, key):
             return {"error": "Your UUID or wallet key is wrong or you have to create a wallet."}
         amount: int = db.session.query(Wallet).get(source_uuid).amount
         # transactions = db.session.query(Wallet)
         return {"amount": amount, "transactions": Transaction.get(source_uuid)}
 
-    def send_coins(self, source_uuid: str, key: str, send_amount: int, destination_uuid: str, usage: str = "") -> dict:
+    @staticmethod
+    def send_coins(source_uuid: str, key: str, send_amount: int, destination_uuid: str, usage: str = "") -> dict:
         if source_uuid == "" or key == "":
             return {"error": "Source UUID or Key is empty."}
         # if no random key was generated and the key is still not activated the user will not send coins
-        if not self.auth_user(source_uuid, key):
+        if not Wallet.auth_user(source_uuid, key):
             return {"error": "Your UUID or wallet key is wrong or "
                              "you have to create a wallet before sending morph coins!"}
         if destination_uuid == "":
@@ -204,27 +227,26 @@ def handle(endpoint: list, data: dict) -> dict:
     except ValueError:
         return {"wallet_response": "Your input data is in a wrong format!", "user_uuid": "str", "source_uuid": "str",
                 "key": "str", "send_amount": "int", "destination_uuid": "str",
-                "usage": "str", "input_data": data}
+                "usage": "str"}
     except KeyError:
         pass
     # every time the handle method is called, a new wallet object is created
-    wallet: Wallet = Wallet()
+    # wallet: Wallet = Wallet()
     db.base.metadata.create_all(bind=db.engine)
     # endpoint[0] will be the action what to do in an array ['get', ...]
     if endpoint[0] == 'create':
         try:
             user_uuid: str = data['user_uuid']
         except KeyError:
-            return {"wallet_response": "Key 'user_uuid' have to be set for endpoint create.", "input_data": data}
-        wallet_response: dict = wallet.create(user_uuid)
+            return {"wallet_response": "Key 'user_uuid' have to be set for endpoint create."}
+        wallet_response: dict = Wallet.create(user_uuid)
     elif endpoint[0] == 'get':
         try:
             source_uuid: str = data['source_uuid']
             key: str = data['key']
         except KeyError:
-            return {"wallet_response": "Keys 'source_uuid' and 'key' have to be set for endpoint get.",
-                    "input_data": data}
-        wallet_response: dict = wallet.get(source_uuid, key)
+            return {"wallet_response": "Keys 'source_uuid' and 'key' have to be set for endpoint get."}
+        wallet_response: dict = Wallet.get(source_uuid, key)
     elif endpoint[0] == 'send':
         try:
             usage: str = data['usage']
@@ -238,31 +260,30 @@ def handle(endpoint: list, data: dict) -> dict:
         except KeyError:
             return {"wallet_response": "Keys 'source_uuid' and 'key' and 'send_amount' "
                                        "and 'destination_uuid' have to be set for endpoint send."
-                                       "You can also use key 'usage' for specify your transfer.",
-                    "input_data": data}
-        wallet_response: dict = wallet.send_coins(source_uuid, key, send_amount, destination_uuid, usage)
+                                       "You can also use key 'usage' for specify your transfer."}
+        wallet_response: dict = Wallet.send_coins(source_uuid, key, send_amount, destination_uuid, usage)
     elif endpoint[0] == 'reset':
         try:
             source_uuid: str = data['source_uuid']
         except KeyError:
             return {"wallet_response": "Key 'source_uuid' has to be set for the endpoint reset."}
-        wallet_response: dict = wallet.reset(source_uuid)
+        wallet_response: dict = Wallet.reset(source_uuid)
     elif endpoint[0] == 'gift':
         try:
             send_amount: int = data['send_amount']
             source_uuid: str = data['source_uuid']
         except KeyError:
             return {"wallet_response": "Keys 'source_uuid' and 'send_amount' have to be set for endpoint gift."}
-        wallet_response: dict = wallet.gift(send_amount, source_uuid)
+        wallet_response: dict = Wallet.gift(send_amount, source_uuid)
     elif endpoint[0] == 'delete':
         try:
             source_uuid: str = data['source_uuid']
         except KeyError:
             return {"wallet_response": "Key 'source_uuid' has to be set for endpoint delete."}
-        wallet_response: dict = wallet.delete(source_uuid)
+        wallet_response: dict = Wallet.delete(source_uuid)
     else:
         wallet_response: dict = {"error": "Endpoint is not supported."}
-    return {"wallet_response": wallet_response, "input_data": data}
+    return {"wallet_response": wallet_response}
 
 
 def handle_ms(ms, data, tag):
@@ -270,24 +291,5 @@ def handle_ms(ms, data, tag):
 
 
 if __name__ == '__main__':
-    """
-    response1 = handle(['create'], {"user_uuid": str(uuid4()).replace("-", "")})
-    print(response1)
-    response2 = handle(['reset'], {"source_uuid": response1['wallet_response']['uuid']})
-    print(response2)
-    print(handle(['get'], {"source_uuid": response2['wallet_response']['uuid'],
-                           "key": response2['wallet_response']['key']}))
-    response3 = handle(['create'], {"user_uuid": str(uuid4()).replace("-", "")})
-    print(response3)
-    response4 = handle(['send'], {"source_uuid": response1['wallet_response']['uuid'],
-                                  "send_amount": 3, "key": response2['wallet_response']['key'],
-                                  "destination_uuid": response3['wallet_response']['uuid'],
-                                  "usage": "hallo bro du bist cool"})
-    print(response4)
-    print(handle(['get'], {"source_uuid": response2['wallet_response']['uuid'],
-                           "key": response2['wallet_response']['key']}))
-    print(handle(['gift'], {"source_uuid": response2['wallet_response']['uuid'], "send_amount": 999}))
-    print(handle(['delete'], {"source_uuid": response2['wallet_response']['uuid']}))
-    """
     m = MicroService('wallet', handle, handle_ms)
     m.run()
