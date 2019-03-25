@@ -1,62 +1,57 @@
 # cryptic-currency
-Python Microservice for the community project Cryptic-Currency
+### Python Microservice for the community project Cryptic-Currency
+##### Explanation of dict keys:
+1. **user_uuid** is the unique identifier for a user account in the game.
+2. **source_uuid** is the unique identifier for a wallet.
+3. **key** is to access the send and get the balance of Morph Coins feature.
+4. **send_amount** is the transaction value to send Morph Coins to another wallet or to get a gift.
+5. **destination_uuid** is the aim, where to send the Morph Coins. It has to be a source_uuid in the wallet.
+6. **usage** is the optional information for a transaction.
 
-Put the following code after:
+* Use Endpoint **'create'** and the following dict format to create a wallet.
 
-    if __name__ == '__main__':
+        {"user_uuid": "7da46fff07d247b29e3f158a2d4431fa"}
+        
+    *returns:*
 
-Guide to understand the features of the wallet
+        {'wallet_response': {'status': 'Your wallet has been created. ', 'uuid': '883297366206414abca286f0a8f46f8d', 'key': '9d57634877'}, 'input_data': {'user_uuid': '7da46fff07d247b29e3f158a2d4431fa'}}
 
-user_id has to be set, because to create a wallet you have to have an unique identifier to lock the amount of wallets for each user
+* Endpoint **'get'** is to get the current amount of Morph Coins and a transaction history.
 
--> CREATE A WALLET
+        {"source_uuid": "883297366206414abca286f0a8f46f8d", "key": "c7eee9d697"}
 
-    creation_user: dict = {"user_id": ''.join([random.choice(string.ascii_letters + string.digits)
-                           for n in range(32)]),
-                           "source_uuid": "", "wallet_key": "",
-                           "send_amount": 0, "destination_uuid": "", "usage": ""}
-    resp: dict = handle(['create'], creation_user)
-    print(resp)
+    *returns*
+        
+        {'wallet_response': {'amount': 100, 'transactions': [{'time_stamp': '2019-03-25 16:54:10.723790', 'source_uuid': '883297366206414abca286f0a8f46f8d', 'amount': 3, 'destination_uuid': '5d3046d634c84394bca32e5555b63917', 'usage': 'hallo bro du bist cool'}]}, 'input_data': {'source_uuid': '883297366206414abca286f0a8f46f8d', 'key': 'c7eee9d697'}}
 
--> RESET WALLET KEY
+* Endpoint **'reset'** returns a new wallet key.
+
+        {"source_uuid": "883297366206414abca286f0a8f46f8d"}
+        
+    *returns*
     
-    update_user: dict = {"user_id": '',
-                         "source_uuid": resp['wallet_response']['uuid'], "wallet_key": "",
-                         "send_amount": 0, "destination_uuid": "", "usage": ""}
-    resp: dict = handle(['reset'], update_user)
+        {'wallet_response': {'status': 'Your wallet key has been updated.', 'uuid': '883297366206414abca286f0a8f46f8d', 'key': 'c7eee9d697'}, 'input_data': {'source_uuid': '883297366206414abca286f0a8f46f8d'}}
 
--> SEND COINS FROM ONE WALLET TO ANOTHER
+* Endpoint **'send'** is to transfer coins from one wallet to another.
 
-    destination_user: dict = {"user_id": ''.join([random.choice(string.ascii_letters + string.digits)
-                              for n in range(32)]),
-                              "source_uuid": resp['wallet_response']['uuid'],
-                              "wallet_key": resp['wallet_response']['key'],
-                              "send_amount": 0, "destination_uuid": "", "usage": ""}
-    resp2: dict = handle(['create'], destination_user)
-    destination_user_uuid: str = resp2['wallet_response']['uuid']
-    destination_user_key: str = resp2['wallet_response']['key']
+        {"source_uuid": "883297366206414abca286f0a8f46f8d", "send_amount": 3, "key": "c7eee9d697", "destination_uuid": "5d3046d634c84394bca32e5555b63917", "usage": "optional keyword for information about the transaction"}
+        
+    *returns*
     
-    send_user: dict = {"user_id": '',
-                       "source_uuid": resp['wallet_response']['uuid'], "wallet_key": resp['wallet_response']['key'],
-                       "send_amount": 11, "destination_uuid": str(destination_user_uuid), "usage": "A cool product"}
-    print(handle(['send'], send_user))
+        {'wallet_response': {'status': 'Transfer of 3 morph coins from 883297366206414abca286f0a8f46f8d to 5d3046d634c84394bca32e5555b63917 successful!'}, 'input_data': {'source_uuid': '883297366206414abca286f0a8f46f8d', 'send_amount': 3, 'key': 'c7eee9d697', 'destination_uuid': '5d3046d634c84394bca32e5555b63917', 'usage': 'optional keyword for information about the transaction'}}
 
--> SHOW THE BALANCE OF WALLET AND TRANSACTIONS
+* Endpoint **'gift'** is to generate Morph Coins.
 
-    balance_user: dict = {"user_id": '',
-                          "source_uuid": resp['wallet_response']['uuid'], "wallet_key": resp['wallet_response']['key'],
-                          "send_amount": 0, "destination_uuid": "", "usage": ""}
-    print(handle(['get'], balance_user))
+        {"source_uuid": "883297366206414abca286f0a8f46f8d", "send_amount": 999}
+        
+    *returns*
+    
+        {'wallet_response': {'status': 'Gift of 999 to 883297366206414abca286f0a8f46f8d successful!'}, 'input_data': {'source_uuid': '883297366206414abca286f0a8f46f8d', 'send_amount': 999}}
 
--> GENERATE COINS AND ADD THEM TO A WALLET
+* Endpoint **'delete'** is to remove a wallet.
 
-    send_gift(12345, balance_user['source_uuid'])
-    print(handle(['get'], balance_user))
-
--> DELETE WALLET
-
-    delete_db_user(balance_user['source_uuid'])
-
--> PRINT THE FIRST 5 WALLETS ORDERED BY BALANCE IN COMMAND LINE
-
-    print_db()
+        {"source_uuid": "883297366206414abca286f0a8f46f8d"}
+        
+    *returns*
+    
+        {'wallet_response': {'status': 'Deletion of 883297366206414abca286f0a8f46f8d successful.'}, 'input_data': {'source_uuid': '883297366206414abca286f0a8f46f8d'}}
