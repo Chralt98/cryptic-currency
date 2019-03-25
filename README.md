@@ -30,8 +30,9 @@
          'transactions': [{'time_stamp': '2019-03-25 16:54:10.723790',
                            'source_uuid': '883297366206414abca286f0a8f46f8d',
                            'amount': 3, 'destination_uuid': '5d3046d634c84394bca32e5555b63917', 
-                           'usage': 'hallo bro du bist cool'}]},
-                           'input_data': {'source_uuid': '883297366206414abca286f0a8f46f8d', 'key': 'c7eee9d697'}}
+                           'usage': 'optional keyword for information about the transaction'}]},
+                           'input_data': {'source_uuid': '883297366206414abca286f0a8f46f8d', 
+                                          'key': 'c7eee9d697'}}
 
 * Endpoint **'reset'** returns a new wallet key.
 
@@ -54,8 +55,13 @@
         
     *returns*
     
-        {'wallet_response': {'status': 'Transfer of 3 morph coins from 883297366206414abca286f0a8f46f8d to 5d3046d634c84394bca32e5555b63917 successful!'}, 
-         'input_data': {'source_uuid': '883297366206414abca286f0a8f46f8d', 'send_amount': 3, 'key': 'c7eee9d697', 'destination_uuid': '5d3046d634c84394bca32e5555b63917', 'usage': 'optional keyword for information about the transaction'}}
+        {'wallet_response': {'status': 'Transfer of 3 morph coins from 883297366206414abca286f0a8f46f8d 
+                                        to 5d3046d634c84394bca32e5555b63917 successful!'}, 
+         'input_data': {'source_uuid': '883297366206414abca286f0a8f46f8d', 
+                        'send_amount': 3, 
+                        'key': 'c7eee9d697', 
+                        'destination_uuid': '5d3046d634c84394bca32e5555b63917', 
+                        'usage': 'optional keyword for information about the transaction'}}
 
 * Endpoint **'gift'** is to generate Morph Coins.
 
@@ -65,7 +71,8 @@
     *returns*
     
         {'wallet_response': {'status': 'Gift of 999 to 883297366206414abca286f0a8f46f8d successful!'}, 
-         'input_data': {'source_uuid': '883297366206414abca286f0a8f46f8d', 'send_amount': 999}}
+         'input_data': {'source_uuid': '883297366206414abca286f0a8f46f8d', 
+                        'send_amount': 999}}
 
 * Endpoint **'delete'** is to remove a wallet.
 
