@@ -1,75 +1,8 @@
-from cryptic import MicroService
+# from cryptic import MicroService
 from uuid import uuid4
 import objects_init as db
 from sqlalchemy import Column, Integer, String, DateTime, exists, and_, or_
 import datetime
-
-
-"""
-    response1 = handle(['create'], {"user_uuid": str(uuid4()).replace("-", "")})
-    print(response1)
-    response2 = handle(['reset'], {"source_uuid": response1['wallet_response']['uuid']})
-    print(response2)
-    print(handle(['get'], {"source_uuid": response2['wallet_response']['uuid'],
-                           "key": response2['wallet_response']['key']}))
-    response3 = handle(['create'], {"user_uuid": str(uuid4()).replace("-", "")})
-    print(response3)
-    response4 = handle(['send'], {"source_uuid": response1['wallet_response']['uuid'],
-                                  "send_amount": 3, "key": response2['wallet_response']['key'],
-                                  "destination_uuid": response3['wallet_response']['uuid'],
-                                  "usage": "hallo bro du bist cool"})
-    print(response4)
-    print(handle(['get'], {"source_uuid": response2['wallet_response']['uuid'],
-                           "key": response2['wallet_response']['key']}))
-    print(handle(['gift'], {"source_uuid": response2['wallet_response']['uuid'], "send_amount": 999}))
-    print(handle(['delete'], {"source_uuid": response2['wallet_response']['uuid']}))
-"""
-
-
-class Transaction(db.base):
-    __tablename__: str = "transaction"
-
-    id: Column = Column(Integer, primary_key=True, autoincrement=True, unique=True)
-    time_stamp: Column = Column(DateTime, nullable=False)
-    source_uuid: Column = Column(String(32))
-    send_amount: Column = Column(Integer, nullable=False, default=0)
-    destination_uuid: Column = Column(String(32))
-    usage: Column = Column(String(64), default='')
-
-    @property
-    def serialize(self) -> dict:
-        _ = self.id
-        return {**self.__dict__}
-
-    @staticmethod
-    def create(source_uuid: str, send_amount: int, destination_uuid: str, usage: str):
-        # create transaction and add it to database
-        """
-        Returns a transaction of a source_uuid.
-        :return: transactions
-        """
-        # Create a new TransactionModel instance
-        transaction: Transaction = Transaction(
-            time_stamp=datetime.datetime.now(),
-            source_uuid=source_uuid,
-            send_amount=send_amount,
-            destination_uuid=destination_uuid,
-            usage=usage
-        )
-
-        # Add the new transaction to the db
-        db.session.add(transaction)
-        db.session.commit()
-
-    @staticmethod
-    def get(source_uuid):
-        transactions: list = []
-        for i in db.session.query(Transaction).filter(or_(Transaction.source_uuid == source_uuid,
-                                                          Transaction.destination_uuid == source_uuid)):
-            transactions.append({"time_stamp": str(i.time_stamp), "source_uuid": str(i.source_uuid),
-                                 "amount": i.send_amount, "destination_uuid": str(i.destination_uuid),
-                                 "usage": str(i.usage)})
-        return transactions
 
 
 class Wallet(db.base):
@@ -209,87 +142,47 @@ class Wallet(db.base):
             print(user_wallet.source_uuid, user_wallet.key, user_wallet.user_uuid, user_wallet.amount, sep=' | ')
 
 
-def handle(endpoint: list, data: dict) -> dict:
-    """
-    The handle method to get data from server to know what to do
-    :param endpoint: the action of the server 'get', 'create', 'send'
-    :param data: source_uuid, key, send_amount, destination_uuid ...
-    :return: wallet response for actions
-    """
-    # test the casting
-    try:
-        str(data['user_uuid'])
-        str(data['source_uuid'])
-        str(data['key'])
-        int(data['send_amount'])
-        str(data['destination_uuid'])
-        str(data['usage'])
-    except ValueError:
-        return {"wallet_response": "Your input data is in a wrong format!", "user_uuid": "str", "source_uuid": "str",
-                "key": "str", "send_amount": "int", "destination_uuid": "str",
-                "usage": "str"}
-    except KeyError:
-        pass
-    # every time the handle method is called, a new wallet object is created
-    # wallet: Wallet = Wallet()
-    db.base.metadata.create_all(bind=db.engine)
-    # endpoint[0] will be the action what to do in an array ['get', ...]
-    if endpoint[0] == 'create':
-        try:
-            user_uuid: str = data['user_uuid']
-        except KeyError:
-            return {"wallet_response": "Key 'user_uuid' have to be set for endpoint create."}
-        wallet_response: dict = Wallet.create(user_uuid)
-    elif endpoint[0] == 'get':
-        try:
-            source_uuid: str = data['source_uuid']
-            key: str = data['key']
-        except KeyError:
-            return {"wallet_response": "Keys 'source_uuid' and 'key' have to be set for endpoint get."}
-        wallet_response: dict = Wallet.get(source_uuid, key)
-    elif endpoint[0] == 'send':
-        try:
-            usage: str = data['usage']
-        except KeyError:
-            usage: str = ''
-        try:
-            source_uuid: str = data['source_uuid']
-            key: str = data['key']
-            send_amount: int = data['send_amount']
-            destination_uuid: str = data['destination_uuid']
-        except KeyError:
-            return {"wallet_response": "Keys 'source_uuid' and 'key' and 'send_amount' "
-                                       "and 'destination_uuid' have to be set for endpoint send."
-                                       "You can also use key 'usage' for specify your transfer."}
-        wallet_response: dict = Wallet.send_coins(source_uuid, key, send_amount, destination_uuid, usage)
-    elif endpoint[0] == 'reset':
-        try:
-            source_uuid: str = data['source_uuid']
-        except KeyError:
-            return {"wallet_response": "Key 'source_uuid' has to be set for the endpoint reset."}
-        wallet_response: dict = Wallet.reset(source_uuid)
-    elif endpoint[0] == 'gift':
-        try:
-            send_amount: int = data['send_amount']
-            source_uuid: str = data['source_uuid']
-        except KeyError:
-            return {"wallet_response": "Keys 'source_uuid' and 'send_amount' have to be set for endpoint gift."}
-        wallet_response: dict = Wallet.gift(send_amount, source_uuid)
-    elif endpoint[0] == 'delete':
-        try:
-            source_uuid: str = data['source_uuid']
-        except KeyError:
-            return {"wallet_response": "Key 'source_uuid' has to be set for endpoint delete."}
-        wallet_response: dict = Wallet.delete(source_uuid)
-    else:
-        wallet_response: dict = {"error": "Endpoint is not supported."}
-    return {"wallet_response": wallet_response}
+class Transaction(db.base):
+    __tablename__: str = "transaction"
 
+    id: Column = Column(Integer, primary_key=True, autoincrement=True, unique=True)
+    time_stamp: Column = Column(DateTime, nullable=False)
+    source_uuid: Column = Column(String(32))
+    send_amount: Column = Column(Integer, nullable=False, default=0)
+    destination_uuid: Column = Column(String(32))
+    usage: Column = Column(String(64), default='')
 
-def handle_ms(ms, data, tag):
-    print(ms, data, tag)
+    @property
+    def serialize(self) -> dict:
+        _ = self.id
+        return {**self.__dict__}
 
+    @staticmethod
+    def create(source_uuid: str, send_amount: int, destination_uuid: str, usage: str):
+        # create transaction and add it to database
+        """
+        Returns a transaction of a source_uuid.
+        :return: transactions
+        """
+        # Create a new TransactionModel instance
+        transaction: Transaction = Transaction(
+            time_stamp=datetime.datetime.now(),
+            source_uuid=source_uuid,
+            send_amount=send_amount,
+            destination_uuid=destination_uuid,
+            usage=usage
+        )
 
-if __name__ == '__main__':
-    m = MicroService('wallet', handle, handle_ms)
-    m.run()
+        # Add the new transaction to the db
+        db.session.add(transaction)
+        db.session.commit()
+
+    @staticmethod
+    def get(source_uuid):
+        transactions: list = []
+        for i in db.session.query(Transaction).filter(or_(Transaction.source_uuid == source_uuid,
+                                                          Transaction.destination_uuid == source_uuid)):
+            transactions.append({"time_stamp": str(i.time_stamp), "source_uuid": str(i.source_uuid),
+                                 "amount": i.send_amount, "destination_uuid": str(i.destination_uuid),
+                                 "usage": str(i.usage)})
+        return transactions
